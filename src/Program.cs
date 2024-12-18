@@ -57,10 +57,11 @@ namespace Mandelbrot
             
             _fb.CopyFrameBuffer(e.Context.Framebuffer, BufferBit.Colour, TextureSampling.Nearest);
             
-            // e.Context.Projection = Matrix4.CreateOrthographic(Width, Height, 0d, 1d);
-            // e.Context.Model = Matrix4.CreateScale(15d);
+            e.Context.Projection = Matrix4.CreateOrthographic(Width, Height, 0d, 1d);
+            e.Context.Model = Matrix4.CreateScale(15d);
             // Vector2 v = new Vector2(_mp.X - _offset.X, _mp.Y + _offset.Y) * _scale;
             // _tr.DrawCentred(e.Context, $"{v}", Shapes.SampleFont, 0, 0);
+            _tr.DrawCentred(e.Context, $"{_maxIter}", Shapes.SampleFont, 0, 0);
         }
         protected override void OnSizeChange(VectorIEventArgs e)
         {
@@ -111,7 +112,9 @@ namespace Mandelbrot
         
         private Colour3 GetColour(int num)
         {
-            return Colour3.Orange.Lerp(Colour3.Lime, num / (_maxIter + 1d));
+            double q = num / (double)_maxIter;
+            q = Math.Pow(q, 0.2);
+            return (Colour3)ColourF3.FromWavelength(400f + (300f * (float)q));
         }
         
         private bool _pan;
