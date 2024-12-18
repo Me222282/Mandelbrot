@@ -31,11 +31,15 @@ namespace Mandelbrot
             _offset = (width / 2d, height / 2d);
             
             _tr = new TextRenderer();
+            
+            _shad = new Shader();
         }
         
         private Texture2D _tex;
         private Framebuffer _fb;
         private TextRenderer _tr;
+        
+        private Shader _shad;
         
         private double _scale;
         private Vector2 _offset;
@@ -47,21 +51,33 @@ namespace Mandelbrot
         {
             base.OnUpdate(e);
             
-            if (_change)
-            {
-                GLArray<Colour3> ar = new GLArray<Colour3>(_tex.Width, _tex.Height);
-                Generate(ar);
-                _tex.EditData(0, 0, ar.Width, ar.Height, BaseFormat.Rgb, ar);
-                _change = false;
-            }
+            // if (_change)
+            // {
+                // GLArray<Colour3> ar = new GLArray<Colour3>(_tex.Width, _tex.Height);
+                // Generate(ar);
+                // _tex.EditData(0, 0, ar.Width, ar.Height, BaseFormat.Rgb, ar);
+                
+                e.Context.Shader = _shad;
+                _shad.MaxIter = _maxIter;
+                Vector2 s = (Vector2)Size;
+                _shad.Scale = _scale * s;
+                _shad.Offset = _offset / s;
+                
+                e.Context.Projection = Matrix.Identity;
+                e.Context.View = Matrix.Identity;
+                e.Context.Model = new STMatrix(2d, 0d);
+                e.Context.Draw(Shapes.Square);
+                
+            //     _change = false;
+            // }
             
-            _fb.CopyFrameBuffer(e.Context.Framebuffer, BufferBit.Colour, TextureSampling.Nearest);
+            // _fb.CopyFrameBuffer(e.Context.Framebuffer, BufferBit.Colour, TextureSampling.Nearest);
             
             e.Context.Projection = Matrix4.CreateOrthographic(Width, Height, 0d, 1d);
-            e.Context.Model = Matrix4.CreateScale(15d);
+            e.Context.Model = new STMatrix(15d, (-Size.X / 2d + 5d, Size.Y / 2d - 5d));
             // Vector2 v = new Vector2(_mp.X - _offset.X, _mp.Y + _offset.Y) * _scale;
             // _tr.DrawCentred(e.Context, $"{v}", Shapes.SampleFont, 0, 0);
-            _tr.DrawCentred(e.Context, $"{_maxIter}", Shapes.SampleFont, 0, 0);
+            _tr.DrawLeftBound(e.Context, $"{_maxIter}\n{1d / (_scale * Size.X)}\n{e.DeltaTime:N3}", Shapes.SampleFont, 0, 0, false);
         }
         protected override void OnSizeChange(VectorIEventArgs e)
         {
