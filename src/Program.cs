@@ -22,10 +22,9 @@ namespace Mandelbrot
         public Program(int width, int height, string title)
             : base(width, height, title)
         {
-            TextureRenderer fb = new TextureRenderer(width, height);
-            fb.SetColourAttachment(0, TextureFormat.Rgb);
-            _fb = fb;
-            _tex = fb.GetTexture(FrameAttachment.Colour0);
+            _fb = new TextureRenderer(width, height);
+            _fb.SetColourAttachment(0, TextureFormat.Rgb);
+            _tex = _fb.GetTexture(FrameAttachment.Colour0);
             
             _scale = 4d / width;
             _offset = (width / 2d, height / 2d);
@@ -36,14 +35,15 @@ namespace Mandelbrot
         }
         
         private Texture2D _tex;
-        private IFramebuffer _fb;
+        private TextureRenderer _fb;
         private TextRenderer _tr;
         
         private Shader _shad;
         
         private double _scale;
         private Vector2 _offset;
-        private int _maxIter = 1000;
+        private int _maxIter = 100;
+        private int _iterOff = 0;
         
         private bool _change = true;
         private double _aniSpeed = 20d;
@@ -103,6 +103,8 @@ namespace Mandelbrot
             
             e.Context.WriteFramebuffer(_fb, BufferBit.Colour, TextureSampling.Nearest);
             
+            if (s.X == 0 || s.Y == 0) { return; }
+            
             e.Context.Projection = Matrix4.CreateOrthographic(Width, Height, 0d, 1d);
             e.Context.Model = new STMatrix(15d, (-s.X / 2d + 5d, s.Y / 2d - 5d));
             // Vector2 v = new Vector2(_mp.X - _offset.X, _mp.Y + _offset.Y) * _scale;
@@ -150,15 +152,12 @@ namespace Mandelbrot
             Parallel.For(0, sz, i =>
             {
                 uint er = image[i] & 0x00FFFFFF;
-                if (er > hist.Length)
+                if (n - er < (50 << 7))
                 {
+                    image[i] = 0;
                     return;
                 }
                 uint hister = hist[er];
-                if (j - hister < 1000)
-                {
-                    hister = 0;
-                }
                 
                 if (hister == 0)
                 {
@@ -170,13 +169,13 @@ namespace Mandelbrot
                 image[i] = FUNC(400f + (300f * t));
             });
         }
-        protected override void OnSizeChange(VectorIEventArgs e)
-        {
-            base.OnSizeChange(e);
+        // protected override void OnSizeChange(VectorIEventArgs e)
+        // {
+        //     base.OnSizeChange(e);
             
-            // _tex.SetData(e.X, e.Y, BaseFormat.R, GLArray<byte>.Empty);
-            _change = true;
-        }
+        //     // _tex.SetData(e.X, e.Y, BaseFormat.R, GLArray<byte>.Empty);
+        //     _change = true;
+        // }
         
         private bool _pan;
         private bool _smooZoo;
@@ -250,15 +249,24 @@ namespace Mandelbrot
 
             _scale = newZoom;
             
-            //_maxIter = (int)(2d / (newZoom * Width)) * 10;
-            _maxIter = (int)(50 * Math.Pow(Math.Log10(1d / _scale), 1.25d) / 2d) * 2;
-            // _maxIter = 50 + (int)Math.Pow(Math.Log10(4d / (_scale * Width)), 5d);
+            MaxMaxIter();
             
             Vector2 pointRelOld = (_mp - _offset) * oldZoom;
             Vector2 pointRelNew = (_mp - _offset) * newZoom;
             _offset += (pointRelNew - pointRelOld) / newZoom;
             
             _change = true;
+        }
+        private void MaxMaxIter()
+        {
+            //_maxIter = (int)(2d / (newZoom * Width)) * 10;
+            _maxIter = (int)(50 * Math.Pow(Math.Log10(1d / _scale), 1.25d) / 2d) * 2 + _iterOff;
+            // _maxIter = 50 + (int)Math.Pow(Math.Log10(4d / (_scale * Width)), 5d);
+            
+            if (_maxIter <= 5)
+            {
+                _maxIter = 5;
+            }
         }
 
         protected override void OnKeyDown(KeyEventArgs e)
@@ -298,6 +306,27 @@ namespace Mandelbrot
             if (e[Keys.H])
             {
                 _histergram = !_histergram;
+                _change = true;
+                return;
+            }
+            if (e[Keys.R])
+            {
+                _fb.Size = Size;
+                _fb.ViewSize = Size;
+                _change = true;
+                return;
+            }
+            if (e[Keys.Minus])
+            {
+                _iterOff -= 100;
+                MaxMaxIter();
+                _change = true;
+                return;
+            }
+            if (e[Keys.Equal])
+            {
+                _iterOff += 100;
+                MaxMaxIter();
                 _change = true;
                 return;
             }
