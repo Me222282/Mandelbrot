@@ -4,7 +4,7 @@ layout(location = 0) out vec4 colour;
 
 in vec2 tex_Coords;
 
-uniform int sh = 7;
+uniform int sh;
 
 uniform dvec2 uScale;
 uniform dvec2 uOffset;

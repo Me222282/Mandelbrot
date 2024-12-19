@@ -12,7 +12,7 @@ namespace Mandelbrot
         {
             Core.Init();
             
-            Window w = new Program(800, 500, "Man");
+            Window w = new Program(800, 500, "Candel");
             w.Run();
             w.Dispose();
             
@@ -22,10 +22,6 @@ namespace Mandelbrot
         public Program(int width, int height, string title)
             : base(width, height, title)
         {
-            // _tex = new Texture2D(TextureFormat.Rgb, TextureData.Byte);
-            // _tex.SetData(width, height, BaseFormat.R, GLArray<byte>.Empty);
-            // Framebuffer fb = new Framebuffer();
-            // fb[0] = _tex;
             TextureRenderer fb = new TextureRenderer(width, height);
             fb.SetColourAttachment(0, TextureFormat.Rgb);
             _fb = fb;
@@ -55,6 +51,8 @@ namespace Mandelbrot
         private double _end;
         private bool _animating = false;
         
+        private bool _histergram = true;
+        
         protected override void OnUpdate(FrameEventArgs e)
         {
             base.OnUpdate(e);
@@ -65,7 +63,13 @@ namespace Mandelbrot
                 double m = enhance ? 1d : -1d;
                 Vector2 mp = _mp;
                 _mp = _aniPos;
-                OnScroll(new ScrollEventArgs(0d, m * e.DeltaTime * _aniSpeed));
+                double sp = _aniSpeed;
+                if (this[Mods.Shift])
+                {
+                    sp *= 2d;
+                }
+                
+                OnScroll(new ScrollEventArgs(0d, m * e.DeltaTime * sp));
                 _mp = mp;
                 if (enhance ? _scale <= _end : _scale >= _end)
                 {
@@ -85,9 +89,12 @@ namespace Mandelbrot
                 dc.Model = new STMatrix(2d, 0d);
                 dc.Draw(Shapes.Square);
                 
-                GLArray<uint> image = _tex.GetData<uint>(BaseFormat.Rgba);
-                Historgram(image);
-                _tex.SetData(image.Width, image.Height, BaseFormat.Rgba, image);
+                if (_histergram)
+                {
+                    GLArray<uint> image = _tex.GetData<uint>(BaseFormat.Rgba);
+                    Historgram(image);
+                    _tex.SetData(image.Width, image.Height, BaseFormat.Rgba, image);
+                }
                 
                 _change = false;
             }
@@ -276,7 +283,7 @@ namespace Mandelbrot
                 _animating = true;
                 
                 Vector2 targetOffset = (s / 2d);
-                if (e[Mods.Shift])
+                if (e[Mods.Alt])
                 {
                     // happens to be centre
                     _aniPos = targetOffset;
@@ -286,6 +293,12 @@ namespace Mandelbrot
                 // targetOffset happens to be centre
                 Vector2 cp = (targetOffset - _offset) * _scale;
                 _aniPos = (cp / _end) + targetOffset;
+                return;
+            }
+            if (e[Keys.H])
+            {
+                _histergram = !_histergram;
+                _change = true;
                 return;
             }
         }
