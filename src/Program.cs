@@ -24,8 +24,11 @@ namespace Mandelbrot
         {
             _tex = new Texture2D(TextureFormat.Rgb, TextureData.Byte);
             _tex.SetData(width, height, BaseFormat.R, GLArray<byte>.Empty);
-            _fb = new Framebuffer();
-            _fb[0] = _tex;
+            // Framebuffer fb = new Framebuffer();
+            // fb[0] = _tex;
+            TextureRenderer fb = new TextureRenderer(width, height);
+            fb.SetColourAttachment(0, TextureFormat.Rgb);
+            _fb = fb;
             
             _scale = 4d / width;
             _offset = (width / 2d, height / 2d);
@@ -36,19 +39,18 @@ namespace Mandelbrot
         }
         
         private Texture2D _tex;
-        private Framebuffer _fb;
+        private IFramebuffer _fb;
         private TextRenderer _tr;
         
         private Shader _shad;
         
         private double _scale;
         private Vector2 _offset;
-        private int _maxIter = 100;
+        private int _maxIter = 1500;
         
         private bool _change = true;
-        private double _animation = 0d;
-        private double _aniTime = 10d;
-        private double _start;
+        private double _aniSpeed = 20d;
+        private Vector2 _aniPos = 0d;
         private double _end;
         private bool _animating = false;
         
@@ -60,21 +62,33 @@ namespace Mandelbrot
             
             if (_animating)
             {
-                double k = _animation / _aniTime;
-                if (k > 1d)
+                bool enlarge = _scale > _end;
+                double m = enlarge ? 1d : -1d;
+                Vector2 mp = _mp;
+                _mp = _aniPos;
+                OnScroll(new ScrollEventArgs(0d, m * e.DeltaTime * _aniSpeed));
+                _mp = mp;
+                if (enlarge ? _scale <= _end : _scale >= _end)
                 {
-                    k = 1d;
                     _animating = false;
                 }
-                double v = _start.Lerp(_end, k * k * k);
-                Vector2 pointRelOld = ((s / 2d) - _offset) * _scale;
-                Vector2 pointRelNew = ((s / 2d) - _offset) * v;
-                _offset += (pointRelNew - pointRelOld) / v;
-                _scale = v;
                 
-                _maxIter = 50 * (int)Math.Pow(Math.Log10(1d / _scale), 1.25d);
+                // double k = _animation / _aniTime;
+                // if (k > 1d)
+                // {
+                //     k = 1d;
+                //     _animating = false;
+                // }
+                // // double v = _start.Lerp(_end, k * k * k);
+                // double v = 
+                // Vector2 pointRelOld = ((s / 2d) - _offset) * _scale;
+                // Vector2 pointRelNew = ((s / 2d) - _offset) * v;
+                // _offset += (pointRelNew - pointRelOld) / v;
+                // _scale = v;
                 
-                _animation += e.DeltaTime;
+                // _maxIter = 50 * (int)Math.Pow(Math.Log10(1d / _scale), 1.25d);
+                
+                // _animation += e.DeltaTime;
             }
             
             // if (_change)
@@ -83,15 +97,15 @@ namespace Mandelbrot
                 // Generate(ar);
                 // _tex.EditData(0, 0, ar.Width, ar.Height, BaseFormat.Rgb, ar);
                 
-                e.Context.Shader = _shad;
+                DrawContext dc = new DrawContext(_fb, _shad);
+                
                 _shad.MaxIter = _maxIter;
                 _shad.Scale = _scale * s;
                 _shad.Offset = _offset / s;
                 
-                e.Context.Projection = Matrix.Identity;
-                e.Context.View = Matrix.Identity;
-                e.Context.Model = new STMatrix(2d, 0d);
-                e.Context.Draw(Shapes.Square);
+                dc.Model = new STMatrix(2d, 0d);
+                dc.Draw(Shapes.Square);
+                e.Context.Copy(dc);
                 
             //     _change = false;
             // }
@@ -180,7 +194,7 @@ namespace Mandelbrot
             
             _mp = e.Location;
             
-            if (!_pan || _animating) { return; }
+            if (!_pan) { return; }
             
             _offset += (_mp - _panStart);// / _scale;
             _panStart = _mp;
@@ -190,17 +204,27 @@ namespace Mandelbrot
         {
             base.OnScroll(e);
             
-            if (_animating) { return; }
+            // if (_animating) { return; }
             
             double oldZoom = _scale;
-            double newZoom = oldZoom - (e.DeltaY * 0.03 * oldZoom);
+            double newZoom;
+            
+            // zoomIn
+            if (e.DeltaY > 0d)
+            {
+                newZoom = oldZoom - (e.DeltaY * 0.03 * oldZoom);
+            }
+            else
+            {
+                newZoom = oldZoom / (1d + e.DeltaY * 0.03);
+            }
 
             if (newZoom < 0) { return; }
 
             _scale = newZoom;
             
             //_maxIter = (int)(2d / (newZoom * Width)) * 10;
-            _maxIter = 50 * (int)Math.Pow(Math.Log10(1d / _scale), 1.25d);
+            // _maxIter = 50 * (int)Math.Pow(Math.Log10(1d / _scale), 1.25d);
             // _maxIter = 50 + (int)Math.Pow(Math.Log10(4d / (_scale * Width)), 5d);
             
             Vector2 pointRelOld = (_mp - _offset) * oldZoom;
@@ -221,11 +245,14 @@ namespace Mandelbrot
             }
             if (e[Keys.BackSpace])
             {
-                _start = _scale;
                 Vector2 s = Size;
                 _end = 4d / s.X;
-                _animation = 0d;
                 _animating = true;
+                Vector2 targetOffset = (s / 2d);
+                
+                // targetOffset happens to be centre
+                Vector2 cp = (targetOffset - _offset) * _scale;
+                _aniPos = (cp / _end) + targetOffset;
                 return;
             }
         }
