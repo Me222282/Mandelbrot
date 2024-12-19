@@ -22,13 +22,14 @@ namespace Mandelbrot
         public Program(int width, int height, string title)
             : base(width, height, title)
         {
-            _tex = new Texture2D(TextureFormat.Rgb, TextureData.Byte);
-            _tex.SetData(width, height, BaseFormat.R, GLArray<byte>.Empty);
+            // _tex = new Texture2D(TextureFormat.Rgb, TextureData.Byte);
+            // _tex.SetData(width, height, BaseFormat.R, GLArray<byte>.Empty);
             // Framebuffer fb = new Framebuffer();
             // fb[0] = _tex;
             TextureRenderer fb = new TextureRenderer(width, height);
             fb.SetColourAttachment(0, TextureFormat.Rgb);
             _fb = fb;
+            _tex = fb.GetTexture(FrameAttachment.Colour0);
             
             _scale = 4d / width;
             _offset = (width / 2d, height / 2d);
@@ -46,7 +47,7 @@ namespace Mandelbrot
         
         private double _scale;
         private Vector2 _offset;
-        private int _maxIter = 1500;
+        private int _maxIter = 1000;
         
         private bool _change = true;
         private double _aniSpeed = 20d;
@@ -57,8 +58,6 @@ namespace Mandelbrot
         protected override void OnUpdate(FrameEventArgs e)
         {
             base.OnUpdate(e);
-            
-            Vector2 s = (Vector2)Size;
             
             if (_animating)
             {
@@ -85,14 +84,15 @@ namespace Mandelbrot
                 // Vector2 pointRelNew = ((s / 2d) - _offset) * v;
                 // _offset += (pointRelNew - pointRelOld) / v;
                 // _scale = v;
+                // _change = true;
                 
                 // _maxIter = 50 * (int)Math.Pow(Math.Log10(1d / _scale), 1.25d);
                 
                 // _animation += e.DeltaTime;
             }
             
-            // if (_change)
-            // {
+            if (_change)
+            {
                 // GLArray<Colour3> ar = new GLArray<Colour3>(_tex.Width, _tex.Height);
                 // Generate(ar);
                 // _tex.EditData(0, 0, ar.Width, ar.Height, BaseFormat.Rgb, ar);
@@ -100,15 +100,23 @@ namespace Mandelbrot
                 DrawContext dc = new DrawContext(_fb, _shad);
                 
                 _shad.MaxIter = _maxIter;
-                _shad.Scale = _scale * s;
-                _shad.Offset = _offset / s;
+                Vector2 ts = _fb.Properties.Size;
+                _shad.Scale = _scale * ts;
+                _shad.Offset = _offset / ts;
                 
                 dc.Model = new STMatrix(2d, 0d);
                 dc.Draw(Shapes.Square);
-                e.Context.Copy(dc);
                 
-            //     _change = false;
-            // }
+                GLArray<uint> image = _tex.GetData<uint>(BaseFormat.Rgba);
+                Historgram(image);
+                _tex.SetData(image.Width, image.Height, BaseFormat.Rgba, image);
+                
+                _change = false;
+            }
+            
+            Vector2 s = (Vector2)Size;
+            
+            e.Context.WriteFramebuffer(_fb, BufferBit.Colour, TextureSampling.Nearest);
             
             // _fb.CopyFrameBuffer(e.Context.Framebuffer, BufferBit.Colour, TextureSampling.Nearest);
             
@@ -118,25 +126,94 @@ namespace Mandelbrot
             // _tr.DrawCentred(e.Context, $"{v}", Shapes.SampleFont, 0, 0);
             _tr.DrawLeftBound(e.Context, $"{_maxIter}\n{1d / (_scale * s.X)}\n{e.DeltaTime:N3}", Shapes.SampleFont, 0, 0, false);
         }
+        private uint FUNC(float l)
+        {
+            Colour3 c = Colour3.FromWavelength(l);
+            uint i = c.R;
+            i |= (uint)c.G << 8;
+            i |= (uint)c.B << 16;
+            return i;
+        }
+        private void Historgram(GLArray<uint> image)
+        {
+            float m;
+            int n = (_maxIter + 50) << 7;
+            uint[] hist = new uint[n + 1];
+            int sz = image.Length;
+            // compute histogram
+            for (int i = 0; i < sz; i++)
+            {
+                uint er = image[i] & 0x00FFFFFF;
+                if (er > hist.Length)
+                {
+                    continue;
+                }
+                hist[er]++;
+            }
+            // histogram -> used colour index (skip holes)
+            uint j = 1;
+            for (int i = 1; i <= n; i++)
+            {
+                if (hist[i] > 0)
+                {
+                    hist[i]=j;
+                    j++;
+                }
+            }
+            // used colour index -> color
+            m = 1f / (float)j;
+            hist[0] = 0x00000000;
+            Parallel.For(0, sz, i =>
+            {
+                uint er = image[i] & 0x00FFFFFF;
+                if (er > hist.Length)
+                {
+                    return;
+                }
+                uint hister = hist[er];
+                if (j - hister < 1000)
+                {
+                    hister = 0;
+                }
+                
+                if (hister == 0)
+                {
+                    image[i] = 0;
+                    return;
+                }
+                
+                float t = hister * m;
+                image[i] = FUNC(400f + (300f * t));
+            });
+        }
         protected override void OnSizeChange(VectorIEventArgs e)
         {
             base.OnSizeChange(e);
             
-            _tex.SetData(e.X, e.Y, BaseFormat.R, GLArray<byte>.Empty);
+            // _tex.SetData(e.X, e.Y, BaseFormat.R, GLArray<byte>.Empty);
             _change = true;
         }
 
-        private void Generate(GLArray<Colour3> map)
+        private void Generate(GLArray<uint> map)
         {
             int w = map.Width;
             
             Parallel.For(0, w, i =>
             {
+                Vector2 lc = -10000d;
+                
                 for (int j = 0; j < map.Height; j++)
                 {
                     Vector2 c = ((i - _offset.X) * _scale, (j - _offset.Y) * _scale);
-                    int index = Mandelbrot(c);
-                    map[i + (j * w)] = GetColour(index);
+                    if (c == lc)
+                    {
+                        Console.WriteLine("!!!");
+                    }
+                    lc = c;
+                    
+                    double index = Mandelbrot(c);
+                    uint ij = (uint)(index * (1 << 7));
+                    map[i + (j * w)] = ij;
                 }
             });
             
@@ -150,18 +227,32 @@ namespace Mandelbrot
             //     }
             // }
         }
-        private int Mandelbrot(Vector2 c)
+        private static double _ln2 = Math.Log(2.0);
+        private double Mandelbrot(Vector2 c)
         {
             Vector2 z = 0d;
+            Vector2 zz = 0d;
             
             int i = 0;
-            while (z.SquaredLength <= 4d && i < _maxIter)
+            while ((zz.X + zz.Y) <= 4.0 && i < _maxIter)
             {
-                z = SquareComplex(z) + c;
+                z = (zz.X - zz.Y, 2d * z.X * z.Y) + c;
+                zz = (z.X * z.X, z.Y * z.Y);
                 i++;
             }
             
-            return i;
+            return i + 1d - Math.Log(Math.Log(Math.Sqrt(zz.X + zz.Y) / _ln2) / _ln2);
+            
+            // Vector2 z = 0d;
+            
+            // int i = 0;
+            // while (z.SquaredLength <= 4d && i < _maxIter)
+            // {
+            //     z = SquareComplex(z) + c;
+            //     i++;
+            // }
+            
+            // return i;
         }
         private Vector2 SquareComplex(Vector2 z) => (z.X * z.X - z.Y * z.Y, 2d * z.X * z.Y);
         
@@ -180,7 +271,7 @@ namespace Mandelbrot
             base.OnMouseDown(e);
             
             _pan = true;
-            _panStart = e.Location;
+            _panStart = _mp;
         }
         protected override void OnMouseUp(MouseEventArgs e)
         {
@@ -192,7 +283,7 @@ namespace Mandelbrot
         {
             base.OnMouseMove(e);
             
-            _mp = e.Location;
+            _mp = e.Location * (_fb.Properties.Size / (Vector2)Size);
             
             if (!_pan) { return; }
             
@@ -224,7 +315,7 @@ namespace Mandelbrot
             _scale = newZoom;
             
             //_maxIter = (int)(2d / (newZoom * Width)) * 10;
-            // _maxIter = 50 * (int)Math.Pow(Math.Log10(1d / _scale), 1.25d);
+            _maxIter = (int)(50 * Math.Pow(Math.Log10(1d / _scale), 1.25d) / 2d) * 2;
             // _maxIter = 50 + (int)Math.Pow(Math.Log10(4d / (_scale * Width)), 5d);
             
             Vector2 pointRelOld = (_mp - _offset) * oldZoom;
@@ -245,7 +336,13 @@ namespace Mandelbrot
             }
             if (e[Keys.BackSpace])
             {
-                Vector2 s = Size;
+                if (_animating)
+                {
+                    _animating = false;
+                    return;
+                }
+                
+                Vector2 s = _fb.Properties.Size;
                 _end = 4d / s.X;
                 _animating = true;
                 Vector2 targetOffset = (s / 2d);

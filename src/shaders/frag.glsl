@@ -4,6 +4,8 @@ layout(location = 0) out vec4 colour;
 
 in vec2 tex_Coords;
 
+uniform int sh = 7;
+
 uniform dvec2 uScale;
 uniform dvec2 uOffset;
 uniform int uMaxIter;
@@ -37,22 +39,23 @@ float Mandelbrot(dvec2 c)
         i++;
     }
     
-    return float(i) - log(log(sqrt(float(zz.x) + float(zz.y))) / log(2.0));
+    return float(i + 1) - log(log(sqrt(float(zz.x) + float(zz.y)) / log(2.0)) / log(2.0));
     // return float(i);
 }
 
 void main()
 {
 	float j = Mandelbrot((tex_Coords - uOffset) * uScale);
-    // int i = int(j);
     
-    // float r,g,b;
-    // r = i & 255;
-    // g = (i >> 8) & 255;
-    // b = (i >> 16) & 255;
-    // colour = vec4(r / 255.0, g / 255.0, b / 255.0, 255);
+    j *= float(1 << sh);
+    int i = int(j);
     
-    float q = j / float(uMaxIter);
-    q = pow(q, 0.2);
-    colour = vec4(spectral_color(400.0 + (300.0 * q)), 1.0);
+    float r = i & 255;
+    float g = (i >> 8) & 255;
+    float b = (i >> 16) & 255;
+    colour = vec4(r / 255.0, g / 255.0, b / 255.0, 1);
+    
+    // float q = j / float(uMaxIter);
+    // q = pow(q, 0.2);
+    // colour = vec4(spectral_color(400.0 + (300.0 * q)), 1.0);
 }
