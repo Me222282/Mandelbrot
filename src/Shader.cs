@@ -9,13 +9,10 @@ namespace Mandelbrot
         public Shader()
         {
             Create(File.ReadAllText("./shaders/vert.glsl"),
-                File.ReadAllText("./shaders/frag.glsl"),
+                File.ReadAllText("./shaders/frag.glsl"), 0,
                 "matrix", "uScale", "uOffset", "uMaxIter", "sh");
-            
-            _m2m3 = new MultiplyMatrix4(null, null);
-            _m1Mm2m3 = new MultiplyMatrix4(null, _m2m3);
 
-            SetUniform(Uniforms[0], Matrix.Identity);
+            SetUniform(Uniforms[0], Matrix4.Identity);
             SetUniform(Uniforms[4], 7);
         }
         
@@ -58,29 +55,6 @@ namespace Mandelbrot
                 _sh = value;
                 SetUniform(Uniforms[4], value);
             }
-        }
-        
-        public override IMatrix Matrix1
-        {
-            get => _m1Mm2m3.Left;
-            set => _m1Mm2m3.Left = value;
-        }
-        public override IMatrix Matrix2
-        {
-            get => _m2m3.Left;
-            set => _m2m3.Left = value;
-        }
-        public override IMatrix Matrix3
-        {
-            get => _m2m3.Right;
-            set => _m2m3.Right = value;
-        }
-
-        private readonly MultiplyMatrix4 _m1Mm2m3;
-        private readonly MultiplyMatrix4 _m2m3;
-        public override void PrepareDraw()
-        {
-            SetUniform(Uniforms[0], _m1Mm2m3);
         }
     }
 }

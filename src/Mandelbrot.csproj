@@ -1,14 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\deps\Structs\src\Structs.csproj" />
-    <ProjectReference Include="..\deps\Graphics\src\Graphics.csproj" />
-    <ProjectReference Include="..\deps\Windowing\src\Windowing.csproj" />
+    <ProjectReference Include="..\deps\Structs\src\Structs.csproj" AdditionalProperties="UseDouble=true" />
+    <ProjectReference Include="..\deps\Graphics\src\Graphics.csproj" AdditionalProperties="UseDouble=true" />
+    <ProjectReference Include="..\deps\Windowing\src\Windowing.csproj" AdditionalProperties="UseDouble=true" />
   </ItemGroup>
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
   
   <ItemGroup>
