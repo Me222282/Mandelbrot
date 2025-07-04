@@ -6,10 +6,12 @@ in vec2 tex_Coords;
 
 uniform int sh;
 
+uniform dvec2 uC;
 uniform dvec2 uScale;
 uniform dvec2 uOffset;
 uniform int uMaxIter;
 uniform int uPower;
+uniform bool uJulia;
 
 vec3 spectral_color(float l)        // RGB <0,1> <- lambda l <400,700> [nm]
 {
@@ -27,10 +29,10 @@ vec3 spectral_color(float l)        // RGB <0,1> <- lambda l <400,700> [nm]
     return c;
 }
 
-float Mandelbrot(dvec2 c)
+float Set(dvec2 p, dvec2 c)
 {
-    dvec2 z = dvec2(0.0);
-    dvec2 zz = dvec2(0.0);
+    dvec2 z = p;
+    dvec2 zz = dvec2(p.x * p.x, p.y * p.y);
     
     int i = 0;
     switch (uPower)
@@ -72,7 +74,10 @@ float Mandelbrot(dvec2 c)
 
 void main()
 {
-	float j = Mandelbrot((tex_Coords - uOffset) * uScale);
+    dvec2 z = (tex_Coords - uOffset) * uScale;
+    float j;
+    if (uJulia) { j = Set(z, uC); }
+    else        { j = Set(uC, z); }
     
     j *= float(1 << sh);
     int i = int(j);

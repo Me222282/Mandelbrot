@@ -7,9 +7,9 @@
   </ItemGroup>
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
-    <!-- <PublishAot>true</PublishAot> -->
+    <PublishAot>true</PublishAot>
   </PropertyGroup>
   
   <ItemGroup>

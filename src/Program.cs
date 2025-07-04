@@ -31,18 +31,14 @@ namespace Mandelbrot
             
             _tr = new TextRenderer();
             
-            _mShad = new MShader();
-            _jShad = new JShader();
-            _shad = _mShad;
+            _shad = new Shader();
         }
         
         private Texture2D _tex;
         private TextureRenderer _fb;
         private TextRenderer _tr;
         
-        private MShader _mShad;
-        private JShader _jShad;
-        private ISetShader _shad;
+        private Shader _shad;
         
         private double _scale;
         private Vector2 _offset;
@@ -57,8 +53,11 @@ namespace Mandelbrot
         
         private bool _histogram = true;
         private bool _julia = false;
-        private Vector2 _juliaC = (0d, 0d);
-        private Vector2 _juliaCPos = (0d, 0d);
+        private bool _useC = false;
+        private Vector2 _juliaC = 0d;
+        private Vector2 _mandelC = 0d;
+        private Vector2 _c = 0d;
+        private Vector2 _cPos = 0d;
         private bool _pointHover = false;
         private bool _pointGrab = false;
         
@@ -69,10 +68,10 @@ namespace Mandelbrot
             Vector2 ts = _fb.Properties.Size;
             Vector2 s = (Vector2)Size;
             
-            if (_julia && this[Keys.Space])
+            if ((_useC || _julia) && this[Keys.Space])
             {
-                _juliaCPos = MouseLocation;
-                _juliaC = ((_juliaCPos / s) - (_offset / ts)) * (_scale * ts);
+                _cPos = MouseLocation;
+                _c = ((_cPos / s) - (_offset / ts)) * (_scale * ts);
                 _change = true;
             }
             
@@ -103,8 +102,7 @@ namespace Mandelbrot
                 _shad.MaxIter = _maxIter;
                 _shad.Scale = _scale * ts;
                 _shad.Offset = _offset / ts;
-                
-                if (_julia) { _jShad.C = _juliaC; }
+                _shad.C = _c;
                 
                 dc.Model = new STMatrix(2d, 0d);
                 dc.Draw(Shapes.Square);
@@ -129,16 +127,16 @@ namespace Mandelbrot
             // _tr.DrawCentred(e.Context, $"{v}", Shapes.SampleFont, 0, 0);
             _tr.DrawLeftBound(e.Context, $"{_maxIter}\n{1d / (_scale * s.X)}\n{e.DeltaTime:N3}", Shapes.SampleFont, 0, 0, false);
             
-            if (_julia)
+            if (_useC || _julia)
             {
-                string i = _juliaC.Y >= 0 ? $"+ {_juliaC.Y:N3}i" : $"- {-_juliaC.Y:N3}i";
-                _tr.DrawLeftBound(e.Context, $"\n\n\n{_juliaC.X:N3} {i}", Shapes.SampleFont, 0, 0, false);
+                string i = _c.Y >= 0 ? $"+ {_c.Y:N3}i" : $"- {-_c.Y:N3}i";
+                _tr.DrawLeftBound(e.Context, $"\n\n\n{_c.X:N3} {i}", Shapes.SampleFont, 0, 0, false);
                 e.Context.Model = Matrix4.Identity;
-                _juliaCPos = (((_juliaC / (_scale * ts)) + (_offset / ts)) * s) - (s * 0.5);
+                _cPos = (((_c / (_scale * ts)) + (_offset / ts)) * s) - (s * 0.5);
                 ColourF c = ColourF.White;
                 if (_pointHover) { c = ColourF.WhiteSmoke; }
                 if (_pointGrab) { c = ColourF.Beige; }
-                e.Context.DrawCircle(_juliaCPos, 7d, c);
+                e.Context.DrawCircle(_cPos, 7d, c);
             }
         }
         private uint FUNC(float l)
@@ -224,10 +222,10 @@ namespace Mandelbrot
                 return;
             }
             
-            if (_julia)
+            if (_useC || _julia)
             {
                 Vector2 mp = e.Location - (Size * 0.5);
-                _pointHover = mp.SquaredDistance(_juliaCPos) < 49d;
+                _pointHover = mp.SquaredDistance(_cPos) < 49d;
             }
             if (!_pan && _pointHover)
             {
@@ -262,15 +260,15 @@ namespace Mandelbrot
             {
                 Vector2 ts = _fb.Properties.Size;
                 Vector2 s = (Vector2)Size;
-                _juliaCPos = e.Location;
-                _juliaC = ((e.Location / s) - (_offset / ts)) * (_scale * ts);
+                _cPos = e.Location;
+                _c = ((e.Location / s) - (_offset / ts)) * (_scale * ts);
                 _change = true;
                 return;
             }
-            if (_julia)
+            if (_useC || _julia)
             {
                 Vector2 mp = e.Location - (Size * 0.5);
-                _pointHover = mp.SquaredDistance(_juliaCPos) < 49d;
+                _pointHover = mp.SquaredDistance(_cPos) < 49d;
             }
             
             // Smooth zoom
@@ -390,30 +388,59 @@ namespace Mandelbrot
             if (e[Keys.J])
             {
                 _julia = !_julia;
+                _shad.Julia = _julia;
                 _pointHover = false;
                 _pointGrab = false;
-                _shad = _julia ? _jShad : _mShad;
+                
+                if (_julia)
+                {
+                    if (_useC) { _mandelC = _c; }
+                    _c = _juliaC;
+                }
+                else
+                {
+                    _juliaC = _c;
+                    if (_useC)  { _c = _mandelC; }
+                    else        { _c = 0d; }
+                }
+                
                 _change = true;
+                return;
+            }
+            if (e[Keys.P])
+            {
+                _useC = !_useC;
+                _pointHover = false;
+                _pointGrab = false;
+                _change = true;
+                
+                if (!_julia)
+                {
+                    if (_useC) { _c = _mandelC; }
+                    else
+                    {
+                        _mandelC = _c;
+                        _c = 0d;
+                    }
+                }
+                
                 return;
             }
             if (e[Keys.D2])
             {
-                _jShad.Power = 2;
-                _mShad.Power = 2;
+                _shad.Power = 2;
                 _change = true;
                 return;
             }
             if (e[Keys.D3])
             {
-                _jShad.Power = 3;
-                _mShad.Power = 3;
+                _shad.Power = 2;
                 _change = true;
                 return;
             }
             if (e[Keys.D4])
             {
-                _jShad.Power = 4;
-                _mShad.Power = 4;
+                _shad.Power = 2;
                 _change = true;
                 return;
             }
