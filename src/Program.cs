@@ -176,7 +176,7 @@ namespace Mandelbrot
                     j++;
                 }
             }
-            // used colour index -> color
+            // used colour index -> colour
             m = 1f / (float)j;
             hist[0] = 0x00000000;
             Parallel.For(0, sz, i =>
@@ -393,6 +393,27 @@ namespace Mandelbrot
                 _pointHover = false;
                 _pointGrab = false;
                 _shad = _julia ? _jShad : _mShad;
+                _change = true;
+                return;
+            }
+            if (e[Keys.D2])
+            {
+                _jShad.Power = 2;
+                _mShad.Power = 2;
+                _change = true;
+                return;
+            }
+            if (e[Keys.D3])
+            {
+                _jShad.Power = 3;
+                _mShad.Power = 3;
+                _change = true;
+                return;
+            }
+            if (e[Keys.D4])
+            {
+                _jShad.Power = 4;
+                _mShad.Power = 4;
                 _change = true;
                 return;
             }

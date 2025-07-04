@@ -10,6 +10,7 @@ uniform dvec2 uC;
 uniform dvec2 uScale;
 uniform dvec2 uOffset;
 uniform int uMaxIter;
+uniform int uPower;
 
 vec3 spectral_color(float l)        // RGB <0,1> <- lambda l <400,700> [nm]
 {
@@ -34,11 +35,37 @@ float Julia(dvec2 p)
     dvec2 c = uC;
     
     int i = 0;
-    while ((zz.x + zz.y) <= 4.0 && i < uMaxIter)
+    switch (uPower)
     {
-        z = dvec2(zz.x - zz.y, 2.0 * z.x * z.y) + c;
-        zz = dvec2(z.x * z.x, z.y * z.y);
-        i++;
+        case 2:
+            while ((zz.x + zz.y) <= 4.0 && i < uMaxIter)
+            {
+                z = dvec2(zz.x - zz.y, 2.0 * z.x * z.y) + c;
+                zz = dvec2(z.x * z.x, z.y * z.y);
+                i++;
+            }
+            break;
+        case 3:
+            while ((zz.x + zz.y) <= 4.0 && i < uMaxIter)
+            {
+                z = dvec2(
+                    z.x * (zz.x - (3.0 * zz.y)),
+                    z.y * ((3.0 * zz.x) - zz.y)) + c;
+                zz = dvec2(z.x * z.x, z.y * z.y);
+                i++;
+            }
+            break;
+        case 4:
+            while ((zz.x + zz.y) <= 4.0 && i < uMaxIter)
+            {
+                double ab = zz.x + zz.y;
+                z = dvec2(
+                    (ab * ab) - (8.0 * zz.x * zz.y),
+                    4.0 * z.x * z.y * (zz.x - zz.y)) + c;
+                zz = dvec2(z.x * z.x, z.y * z.y);
+                i++;
+            }
+            break;
     }
     
     return float(i + 1) - log(log(sqrt(float(zz.x) + float(zz.y)) / log(2.0)) / log(2.0));

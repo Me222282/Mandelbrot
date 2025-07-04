@@ -10,10 +10,11 @@ namespace Mandelbrot
         {
             Create(File.ReadAllText("./shaders/vert.glsl"),
                 File.ReadAllText("./shaders/jfrag.glsl"), 0,
-                "matrix", "uScale", "uOffset", "uMaxIter", "sh", "uC");
+                "matrix", "uScale", "uOffset", "uMaxIter", "sh", "uPower", "uC");
 
             SetUniform(Uniforms[0], Matrix4.Identity);
             SetUniform(Uniforms[4], 7);
+            SetUniform(Uniforms[5], 2);
         }
         
         private Vector2 _scale;
@@ -43,7 +44,7 @@ namespace Mandelbrot
             set
             {
                 _c = value;
-                SetUniform(Uniforms[5], value);
+                SetUniform(Uniforms[6], value);
             }
         }
         private int _maxIter;
@@ -64,6 +65,16 @@ namespace Mandelbrot
             {
                 _sh = value;
                 SetUniform(Uniforms[4], value);
+            }
+        }
+        private int _power;
+        public int Power
+        {
+            get => _power;
+            set
+            {
+                _power = value;
+                SetUniform(Uniforms[5], value);
             }
         }
     }
