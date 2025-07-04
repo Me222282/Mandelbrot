@@ -4,13 +4,13 @@ using Zene.Structs;
 
 namespace Mandelbrot
 {
-    public class Shader : BaseShaderProgram
+    public class JShader : BaseShaderProgram, ISetShader
     {
-        public Shader()
+        public JShader()
         {
             Create(File.ReadAllText("./shaders/vert.glsl"),
-                File.ReadAllText("./shaders/frag.glsl"), 0,
-                "matrix", "uScale", "uOffset", "uMaxIter", "sh");
+                File.ReadAllText("./shaders/jfrag.glsl"), 0,
+                "matrix", "uScale", "uOffset", "uMaxIter", "sh", "uC");
 
             SetUniform(Uniforms[0], Matrix4.Identity);
             SetUniform(Uniforms[4], 7);
@@ -34,6 +34,16 @@ namespace Mandelbrot
             {
                 _offset = value;
                 SetUniform(Uniforms[2], value);
+            }
+        }
+        private Vector2 _c;
+        public Vector2 C
+        {
+            get => _c;
+            set
+            {
+                _c = value;
+                SetUniform(Uniforms[5], value);
             }
         }
         private int _maxIter;

@@ -31,14 +31,18 @@ namespace Mandelbrot
             
             _tr = new TextRenderer();
             
-            _shad = new Shader();
+            _mShad = new MShader();
+            _jShad = new JShader();
+            _shad = _mShad;
         }
         
         private Texture2D _tex;
         private TextureRenderer _fb;
         private TextRenderer _tr;
         
-        private Shader _shad;
+        private MShader _mShad;
+        private JShader _jShad;
+        private ISetShader _shad;
         
         private double _scale;
         private Vector2 _offset;
@@ -51,11 +55,26 @@ namespace Mandelbrot
         private double _end;
         private bool _animating = false;
         
-        private bool _histergram = true;
+        private bool _histogram = true;
+        private bool _julia = false;
+        private Vector2 _juliaC = (0d, 0d);
+        private Vector2 _juliaCPos = (0d, 0d);
+        private bool _pointHover = false;
+        private bool _pointGrab = false;
         
         protected override void OnUpdate(FrameEventArgs e)
         {
             base.OnUpdate(e);
+            
+            Vector2 ts = _fb.Properties.Size;
+            Vector2 s = (Vector2)Size;
+            
+            if (_julia && this[Keys.Space])
+            {
+                _juliaCPos = MouseLocation;
+                _juliaC = ((_juliaCPos / s) - (_offset / ts)) * (_scale * ts);
+                _change = true;
+            }
             
             if (_animating)
             {
@@ -82,34 +101,45 @@ namespace Mandelbrot
                 DrawContext dc = new DrawContext(_fb, _shad);
                 
                 _shad.MaxIter = _maxIter;
-                Vector2 ts = _fb.Properties.Size;
                 _shad.Scale = _scale * ts;
                 _shad.Offset = _offset / ts;
+                
+                if (_julia) { _jShad.C = _juliaC; }
                 
                 dc.Model = new STMatrix(2d, 0d);
                 dc.Draw(Shapes.Square);
                 
-                if (_histergram)
+                if (_histogram)
                 {
                     GLArray<uint> image = _tex.GetData<uint>(BaseFormat.Rgba);
-                    Historgram(image);
+                    Histogram(image);
                     _tex.SetData(image.Width, image.Height, BaseFormat.Rgba, image);
                 }
                 
                 _change = false;
             }
             
-            Vector2 s = (Vector2)Size;
-            
             e.Context.WriteFramebuffer(_fb, BufferBit.Colour, TextureSampling.Nearest);
             
             if (s.X == 0 || s.Y == 0) { return; }
             
-            e.Context.Projection = Matrix4.CreateOrthographic(Width, Height, 0d, 1d);
+            e.Context.Projection = Matrix4.CreateOrthographic(s.X, s.Y, 0d, 1d);
             e.Context.Model = new STMatrix(15d, (-s.X / 2d + 5d, s.Y / 2d - 5d));
             // Vector2 v = new Vector2(_mp.X - _offset.X, _mp.Y + _offset.Y) * _scale;
             // _tr.DrawCentred(e.Context, $"{v}", Shapes.SampleFont, 0, 0);
             _tr.DrawLeftBound(e.Context, $"{_maxIter}\n{1d / (_scale * s.X)}\n{e.DeltaTime:N3}", Shapes.SampleFont, 0, 0, false);
+            
+            if (_julia)
+            {
+                string i = _juliaC.Y >= 0 ? $"+ {_juliaC.Y:N3}i" : $"- {-_juliaC.Y:N3}i";
+                _tr.DrawLeftBound(e.Context, $"\n\n\n{_juliaC.X:N3} {i}", Shapes.SampleFont, 0, 0, false);
+                e.Context.Model = Matrix4.Identity;
+                _juliaCPos = (((_juliaC / (_scale * ts)) + (_offset / ts)) * s) - (s * 0.5);
+                ColourF c = ColourF.White;
+                if (_pointHover) { c = ColourF.WhiteSmoke; }
+                if (_pointGrab) { c = ColourF.Beige; }
+                e.Context.DrawCircle(_juliaCPos, 7d, c);
+            }
         }
         private uint FUNC(float l)
         {
@@ -120,7 +150,7 @@ namespace Mandelbrot
             return i;
         }
         // Source: https://stackoverflow.com/questions/53658296/mandelbrot-set-color-spectrum-suggestions/53666890#53666890
-        private void Historgram(GLArray<uint> image)
+        private void Histogram(GLArray<uint> image)
         {
             float m;
             int n = (_maxIter + 50) << 7;
@@ -194,6 +224,17 @@ namespace Mandelbrot
                 return;
             }
             
+            if (_julia)
+            {
+                Vector2 mp = e.Location - (Size * 0.5);
+                _pointHover = mp.SquaredDistance(_juliaCPos) < 49d;
+            }
+            if (!_pan && _pointHover)
+            {
+                _pointGrab = true;
+                return;
+            }
+            
             _pan = true;
             _panStart = _mp;
         }
@@ -208,6 +249,7 @@ namespace Mandelbrot
                 return;
             }
             
+            _pointGrab = false;
             _pan = false;
         }
         protected override void OnMouseMove(MouseEventArgs e)
@@ -215,6 +257,21 @@ namespace Mandelbrot
             base.OnMouseMove(e);
             
             _mp = e.Location * (_fb.Properties.Size / (Vector2)Size);
+            
+            if (_pointGrab)
+            {
+                Vector2 ts = _fb.Properties.Size;
+                Vector2 s = (Vector2)Size;
+                _juliaCPos = e.Location;
+                _juliaC = ((e.Location / s) - (_offset / ts)) * (_scale * ts);
+                _change = true;
+                return;
+            }
+            if (_julia)
+            {
+                Vector2 mp = e.Location - (Size * 0.5);
+                _pointHover = mp.SquaredDistance(_juliaCPos) < 49d;
+            }
             
             // Smooth zoom
             if (_smooZoo)
@@ -224,7 +281,7 @@ namespace Mandelbrot
             
             if (!_pan) { return; }
             
-            _offset += (_mp - _panStart);
+            _offset += _mp - _panStart;
             _panStart = _mp;
             _change = true;
         }
@@ -305,7 +362,7 @@ namespace Mandelbrot
             }
             if (e[Keys.H])
             {
-                _histergram = !_histergram;
+                _histogram = !_histogram;
                 _change = true;
                 return;
             }
@@ -327,6 +384,15 @@ namespace Mandelbrot
             {
                 _iterOff += 100;
                 MaxMaxIter();
+                _change = true;
+                return;
+            }
+            if (e[Keys.J])
+            {
+                _julia = !_julia;
+                _pointHover = false;
+                _pointGrab = false;
+                _shad = _julia ? _jShad : _mShad;
                 _change = true;
                 return;
             }

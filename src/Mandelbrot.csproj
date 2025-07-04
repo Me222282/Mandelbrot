@@ -9,13 +9,14 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
+    <!-- <PublishAot>true</PublishAot> -->
   </PropertyGroup>
   
   <ItemGroup>
-    <None Update="./shaders/frag.glsl">
+    <None Update="./shaders/mfrag.glsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="./shaders/vert.glsl">
+    <None Update="./shaders/mvert.glsl">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
